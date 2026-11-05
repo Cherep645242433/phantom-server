@@ -1,12 +1,36 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
-app.use(cors());
+
+// --- ЗАЩИТА ОТ ХАКЕРСКИХ КРЫС ---
+
+// 1. Разрешаем запросы ТОЛЬКО с нашего сайта (CORS)
+const allowedOrigins = ['https://cherep645242433.github.io', 'http://localhost:3000', 'http://127.0.0.1:5500'];
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Доступ запрещен (CORS)'));
+        }
+    }
+}));
+
+// 2. Ограничиваем количество запросов (Rate Limiting)
+const limiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 минута
+    max: 10, // Максимум 10 запросов в минуту с одного IP
+    message: { error: "Слишком много запросов. Попробуй позже." }
+});
+app.use('/api/chat', limiter);
+
 app.use(express.json());
 
-// Твой ключ (он будет храниться только здесь, на сервере Render)
+// Ключ берется из переменных окружения Render (в коде его нет!)
 const HF_API_KEY = process.env.HF_API_KEY;
 
 app.post('/api/chat', async (req, res) => {
