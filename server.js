@@ -5,20 +5,19 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 
-// Временно разрешаем все запросы для теста
+// Временно разрешаем все запросы
 app.use(cors());
 
-// Ограничиваем количество запросов (Rate Limiting)
 const limiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 минута
-    max: 10, // Максимум 10 запросов в минуту с одного IP
+    windowMs: 1 * 60 * 1000,
+    max: 10,
     message: { error: "Слишком много запросов. Попробуй позже." }
 });
 app.use('/api/chat', limiter);
 
 app.use(express.json());
 
-// Ключ берется из переменных окружения Render (в коде его нет!)
+// Ключ берется из переменных окружения Render
 const HF_API_KEY = process.env.HF_API_KEY;
 
 app.post('/api/chat', async (req, res) => {
@@ -29,14 +28,15 @@ app.post('/api/chat', async (req, res) => {
     }
 
     try {
-        const response = await fetch("https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct", {
+        // Используем модель Mistral
+        const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", {
             headers: {
                 "Authorization": `Bearer ${HF_API_KEY}`,
                 "Content-Type": "application/json"
             },
             method: "POST",
             body: JSON.stringify({
-                inputs: `Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage}`,
+                inputs: `<s>[INST] Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage} [/INST]`,
                 parameters: { max_new_tokens: 150, temperature: 0.7 }
             })
         });
@@ -45,7 +45,8 @@ app.post('/api/chat', async (req, res) => {
         let botResponse = "Извини, я не смог ответить.";
         
         if (data && data[0] && data[0].generated_text) {
-            botResponse = data[0].generated_text.replace(`Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage}`, '').trim();
+            // Очищаем ответ от лишнего текста
+            botResponse = data[0].generated_text.replace(`<s>[INST] Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage} [/INST]`, '').trim();
         }
 
         res.json({ reply: botResponse });
