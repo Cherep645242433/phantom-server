@@ -13,16 +13,16 @@ app.post('/api/chat', async (req, res) => {
     if (!userMessage) return res.status(400).json({ error: "Пустое сообщение" });
 
     try {
-        // Используем модель, которая точно доступна (Zephyr)
-        const response = await fetch("https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta", {
+        // Используем модель Qwen
+        const response = await fetch("https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct", {
             headers: {
                 "Authorization": `Bearer ${HF_API_KEY}`,
                 "Content-Type": "application/json"
             },
             method: "POST",
             body: JSON.stringify({
-                inputs: `Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко и дружелюбно. Вопрос: ${userMessage}`,
-                parameters: { max_new_tokens: 100, temperature: 0.7 }
+                inputs: `Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage}`,
+                parameters: { max_new_tokens: 150, temperature: 0.7 }
             })
         });
 
@@ -37,7 +37,7 @@ app.post('/api/chat', async (req, res) => {
         let botResponse = "Извини, я не смог ответить.";
         
         if (data && data[0] && data[0].generated_text) {
-            botResponse = data[0].generated_text.replace(`Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко и дружелюбно. Вопрос: ${userMessage}`, '').trim();
+            botResponse = data[0].generated_text.replace(`Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage}`, '').trim();
         }
 
         res.json({ reply: botResponse });
