@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
+const https = require('https');
 
 const app = express();
 app.use(cors());
@@ -8,43 +8,52 @@ app.use(express.json());
 
 const HF_API_KEY = process.env.HF_API_KEY;
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', (req, res) => {
     const userMessage = req.body.message;
     if (!userMessage) return res.status(400).json({ error: "Пустое сообщение" });
 
-    try {
-        // Используем модель Qwen
-        const response = await fetch("https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct", {
-            headers: {
-                "Authorization": `Bearer ${HF_API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            method: "POST",
-            body: JSON.stringify({
-                inputs: `Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage}`,
-                parameters: { max_new_tokens: 150, temperature: 0.7 }
-            })
+    const postData = JSON.stringify({
+        inputs: `Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage}`,
+        parameters: { max_new_tokens: 150, temperature: 0.7 }
+    });
+
+    const options = {
+        hostname: 'api-inference.huggingface.co',
+        port: 443,
+        path: '/models/Qwen/Qwen2.5-7B-Instruct',
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${HF_API_KEY}`,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData)
+        }
+    };
+
+    const apiReq = https.request(options, (apiRes) => {
+        let data = '';
+        apiRes.on('data', (chunk) => { data += chunk; });
+        apiRes.on('end', () => {
+            try {
+                const parsed = JSON.parse(data);
+                let botResponse = "Извини, я не смог ответить.";
+                if (parsed && parsed[0] && parsed[0].generated_text) {
+                    botResponse = parsed[0].generated_text.replace(`Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage}`, '').trim();
+                }
+                res.json({ reply: botResponse });
+            } catch (e) {
+                console.error("Ошибка парсинга:", e);
+                res.status(500).json({ reply: "Ошибка формата ответа." });
+            }
         });
+    });
 
-        // Проверяем, не вернул ли сервер ошибку
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Ошибка от Hugging Face:", errorText);
-            return res.status(500).json({ reply: "Ошибка API: " + response.status });
-        }
-
-        const data = await response.json();
-        let botResponse = "Извини, я не смог ответить.";
-        
-        if (data && data[0] && data[0].generated_text) {
-            botResponse = data[0].generated_text.replace(`Ты — Phantom, ИИ-ассистент студии Phantom Road Studio. Отвечай кратко, дружелюбно и по делу. Вопрос пользователя: ${userMessage}`, '').trim();
-        }
-
-        res.json({ reply: botResponse });
-    } catch (error) {
-        console.error("Ошибка сервера:", error);
+    apiReq.on('error', (e) => {
+        console.error("Ошибка запроса:", e);
         res.status(500).json({ reply: "Ошибка соединения с ИИ." });
-    }
+    });
+
+    apiReq.write(postData);
+    apiReq.end();
 });
 
 const PORT = process.env.PORT || 3000;
