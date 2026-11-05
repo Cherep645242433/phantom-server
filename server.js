@@ -5,22 +5,10 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 
-// --- ЗАЩИТА ОТ ХАКЕРСКИХ КРЫС ---
+// Временно разрешаем все запросы для теста
+app.use(cors());
 
-// 1. Разрешаем запросы ТОЛЬКО с нашего сайта (CORS)
-const allowedOrigins = ['https://cherep645242433.github.io', 'http://localhost:3000', 'http://127.0.0.1:5500'];
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Доступ запрещен (CORS)'));
-        }
-    }
-}));
-
-// 2. Ограничиваем количество запросов (Rate Limiting)
+// Ограничиваем количество запросов (Rate Limiting)
 const limiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 минута
     max: 10, // Максимум 10 запросов в минуту с одного IP
